@@ -5,20 +5,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import com.example.tripmanager.ui.theme.TripManagerTheme
-import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.tripmanager.ui.theme.TripManagerTheme
+
 
 
 class MainActivity : ComponentActivity() {
@@ -41,88 +42,75 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun LoginScreen() {
-    var email by remember { mutableStateOf("") }
+    var user by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-
     val context = LocalContext.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Imagen del logo
+
         Image(
-            painter = painterResource(id = R.drawable.logo), // 👈 cambia "logo" por el nombre de tu imagen en drawable
-            contentDescription = "Logo Trip Manager",
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "Logo TripManager",
             modifier = Modifier
-                .size(150.dp) // tamaño de la imagen
+                .size(200.dp)
                 .padding(bottom = 16.dp)
         )
 
-        // Texto debajo de la imagen
-        Text(
-            text = "Trip Manager",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Text(
-            text = "Tu agenda de viajes inteligente",
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Text("TripManager", fontSize = 60.sp, color = Color.Black)
+        //Subititulo
+        Text("Tu agenda de viajes inteligente", fontSize = 20.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 32.dp))
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Título de inicio de sesión
-        Text(text = "Iniciar Sesión", style = MaterialTheme.typography.headlineSmall)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Campo correo
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Correo") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+        Icon(
+            painter = painterResource(id = R.drawable.img),
+            contentDescription = "Usuario",
+            modifier = Modifier
+                .size(100.dp)
+                .padding(bottom = 24.dp),
+            tint = Color.Black
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = user,
+            onValueChange = { user = it },
+            label = { Text("Usuario") },
+            modifier = Modifier.fillMaxWidth() //fillMaxWidth hace que el recuadro se haga al ancho de la pantalla
 
-        // Campo contraseña
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             label = { Text("Contraseña") },
             visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Password),
+            modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // Botón ingresar
         Button(
             onClick = {
-                if (email == "Sergio" && password == "1234") {
+                // TODO: conectar con Django aquí
+                if (user == "Sergio" && password == "1234") {
                     context.startActivity(Intent(context, MenuActivity::class.java))
                 } else {
                     println("Credenciales incorrectas")
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.wrapContentWidth(), //el cuadro se adapta al contenido
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
         ) {
-            Text("Ingresar")
+            Text("Ingresar", color = Color.White)
         }
-    }
-}
-
-
-@Preview(showBackground = true)
-@Composable
-fun LoginPreview() {
-    TripManagerTheme {
-        LoginScreen()
     }
 }
