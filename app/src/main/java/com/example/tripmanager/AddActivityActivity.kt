@@ -20,7 +20,7 @@ class AddActivityActivity : ComponentActivity() {
                     sessionManager = sessionManager,
                     api = api,
                     onActivityCreated = {
-                        // 🔹 Avisamos al padre que sí se creó una actividad
+                        //Avisamos al padre que sí se creó una actividad
                         setResult(RESULT_OK)
                         finish()
                     },

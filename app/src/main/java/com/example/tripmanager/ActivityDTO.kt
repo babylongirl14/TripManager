@@ -8,6 +8,6 @@ data class ActivityDTO(
     val descripcion: String,
     val hora: String,
     val alerta: String,
-    val recordatorio: String? = null   // 👈 agregar este campo
+    val recordatorio: String? = null
 )
 

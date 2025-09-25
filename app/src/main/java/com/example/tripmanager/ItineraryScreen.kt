@@ -24,7 +24,7 @@ fun ItineraryScreen(
     tripName: String,
     onAddClick: () -> Unit
 ) {
-    // ✅ LocalContext y remember deben ir DENTRO del cuerpo composable
+    //LocalContext y remember deben ir DENTRO del cuerpo composable
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
     val api = remember { RetrofitClient.instance.create(ApiService::class.java) }

@@ -75,7 +75,7 @@ fun MenuScreen() {
         })
     }
 
-    // 🔹 Recargar cada vez que la pantalla se reanuda
+    //Recargar cada vez que la pantalla se reanuda
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _: LifecycleOwner, event: Lifecycle.Event ->
@@ -186,7 +186,7 @@ fun MenuScreen() {
             }
         }
 
-        // 🔹 Diálogo de confirmación con llamada a la API
+        //Diálogo de confirmación con llamada a la API
         if (showDeleteDialog && tripToDelete != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },

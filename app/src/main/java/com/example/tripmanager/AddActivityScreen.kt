@@ -20,7 +20,7 @@ fun AddActivityScreen(
     tripId: Int,
     sessionManager: SessionManager,
     api: ApiService,
-    onActivityCreated: () -> Unit, // 👈 callback que refresca Itinerary
+    onActivityCreated: () -> Unit, //callback que refresca Itinerary
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
@@ -121,7 +121,7 @@ fun AddActivityScreen(
                                                         "✅ Actividad creada",
                                                         Toast.LENGTH_SHORT
                                                     ).show()
-                                                    onActivityCreated() // 👈 refresca Itinerary
+                                                    onActivityCreated() //refresca Itinerary
                                                 } else {
                                                     Toast.makeText(
                                                         context,
