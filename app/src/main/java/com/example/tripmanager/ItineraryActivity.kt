@@ -16,6 +16,10 @@ class ItineraryActivity : ComponentActivity() {
         tripId = intent.getIntExtra("tripId", -1)
         tripName = intent.getStringExtra("tripName") ?: "Viaje"
 
+        renderScreen()
+    }
+
+    private fun renderScreen() {
         setContent {
             TripManagerTheme {
                 ItineraryScreen(
@@ -24,28 +28,21 @@ class ItineraryActivity : ComponentActivity() {
                     onAddClick = {
                         val intent = Intent(this, AddActivityActivity::class.java)
                         intent.putExtra("tripId", tripId)
-                        startActivity(intent)
+                        // 🔹 startActivityForResult para refrescar al regresar
+                        startActivityForResult(intent, 1001)
                     }
                 )
             }
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        setContent {
-            TripManagerTheme {
-                ItineraryScreen(
-                    tripId = tripId,
-                    tripName = tripName,
-                    onAddClick = {
-                        val intent = Intent(this, AddActivityActivity::class.java)
-                        intent.putExtra("tripId", tripId)
-                        startActivity(intent)
-                    }
-                )
-            }
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 1001 && resultCode == RESULT_OK) {
+            // 🔹 Si se creó una actividad, refrescamos la pantalla
+            renderScreen()
         }
     }
 }
+
 
