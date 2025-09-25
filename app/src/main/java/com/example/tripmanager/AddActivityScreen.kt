@@ -20,7 +20,7 @@ fun AddActivityScreen(
     tripId: Int,
     sessionManager: SessionManager,
     api: ApiService,
-    onActivityCreated: () -> Unit,
+    onActivityCreated: () -> Unit, // 👈 callback que refresca Itinerary
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
@@ -99,13 +99,15 @@ fun AddActivityScreen(
                                 val token = sessionManager.fetchAuthToken()
                                 if (!token.isNullOrEmpty()) {
                                     loading = true
+                                    val horaFormateada = if (hora.length == 5) "$hora:00" else hora
+
                                     val nuevaActividad = ActivityDTO(
-                                        id = 0,
+                                        trip = tripId,
                                         descripcion = descripcion,
-                                        hora = hora,
-                                        alerta = alerta,
-                                        trip = tripId
+                                        hora = horaFormateada,
+                                        alerta = alerta
                                     )
+
                                     api.createActivity("Bearer $token", nuevaActividad)
                                         .enqueue(object : Callback<ActivityDTO> {
                                             override fun onResponse(
@@ -116,14 +118,14 @@ fun AddActivityScreen(
                                                 if (response.isSuccessful) {
                                                     Toast.makeText(
                                                         context,
-                                                        "Actividad creada",
+                                                        "✅ Actividad creada",
                                                         Toast.LENGTH_SHORT
                                                     ).show()
-                                                    onActivityCreated()
+                                                    onActivityCreated() // 👈 refresca Itinerary
                                                 } else {
                                                     Toast.makeText(
                                                         context,
-                                                        "Error al crear actividad",
+                                                        "❌ Error al crear actividad",
                                                         Toast.LENGTH_SHORT
                                                     ).show()
                                                 }
@@ -136,7 +138,7 @@ fun AddActivityScreen(
                                                 loading = false
                                                 Toast.makeText(
                                                     context,
-                                                    "Error: ${t.message}",
+                                                    "⚠️ Error: ${t.message}",
                                                     Toast.LENGTH_SHORT
                                                 ).show()
                                             }

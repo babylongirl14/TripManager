@@ -50,6 +50,8 @@ fun MenuScreen() {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var tripToDelete by remember { mutableStateOf<Int?>(null) }
 
+    val api = RetrofitClient.instance.create(ApiService::class.java)
+
     // 🔹 Función para cargar viajes
     fun cargarViajes() {
         val token = sessionManager.fetchAuthToken()
@@ -58,7 +60,6 @@ fun MenuScreen() {
             return
         }
 
-        val api = RetrofitClient.instance.create(ApiService::class.java)
         api.getTrips("Bearer $token").enqueue(object : Callback<List<TripDTO>> {
             override fun onResponse(call: Call<List<TripDTO>>, response: Response<List<TripDTO>>) {
                 if (response.isSuccessful) {
@@ -154,8 +155,8 @@ fun MenuScreen() {
                                         onClick = {
                                             expandedTrip = null
                                             val intent = Intent(context, ItineraryActivity::class.java)
-                                            intent.putExtra("tripId", trip.id)        // 👈 Aquí pasamos el ID
-                                            intent.putExtra("tripName", trip.destino) // 👈 Aquí pasamos el nombre
+                                            intent.putExtra("tripId", trip.id)
+                                            intent.putExtra("tripName", trip.destino)
                                             context.startActivity(intent)
                                         }
                                     )
@@ -178,27 +179,37 @@ fun MenuScreen() {
                             }
                         }
                         Divider(Modifier.padding(vertical = 6.dp))
-                        Text(
-                            "Fecha: ${trip.fecha_inicio} - ${trip.fecha_fin}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            trip.tipo,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
-                        )
+                        Text("Fecha: ${trip.fecha_inicio} - ${trip.fecha_fin}")
+                        Text(trip.tipo, color = Color.Gray)
                     }
                 }
             }
         }
 
-        // Diálogo de confirmación
+        // 🔹 Diálogo de confirmación con llamada a la API
         if (showDeleteDialog && tripToDelete != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
                 confirmButton = {
                     TextButton(onClick = {
-                        trips = trips.filterNot { it.id == tripToDelete }
+                        val token = sessionManager.fetchAuthToken()
+                        if (!token.isNullOrEmpty()) {
+                            api.deleteTrip("Bearer $token", tripToDelete!!)
+                                .enqueue(object : Callback<Void> {
+                                    override fun onResponse(call: Call<Void>, response: Response<Void>) {
+                                        if (response.isSuccessful) {
+                                            Toast.makeText(context, "✅ Viaje eliminado", Toast.LENGTH_SHORT).show()
+                                            cargarViajes()
+                                        } else {
+                                            Toast.makeText(context, "❌ Error al eliminar", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+
+                                    override fun onFailure(call: Call<Void>, t: Throwable) {
+                                        Toast.makeText(context, "⚠️ Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                })
+                        }
                         showDeleteDialog = false
                     }) {
                         Text("Eliminar", color = Color.Red)

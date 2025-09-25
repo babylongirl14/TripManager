@@ -20,11 +20,11 @@ class AddActivityActivity : ComponentActivity() {
                     sessionManager = sessionManager,
                     api = api,
                     onActivityCreated = {
-                        // ✅ Vuelve al itinerario después de crear la actividad
+                        // 🔹 Avisamos al padre que sí se creó una actividad
+                        setResult(RESULT_OK)
                         finish()
                     },
                     onCancel = {
-                        // ✅ Si cancelas, también regresa al itinerario
                         finish()
                     }
                 )
@@ -32,4 +32,3 @@ class AddActivityActivity : ComponentActivity() {
         }
     }
 }
-

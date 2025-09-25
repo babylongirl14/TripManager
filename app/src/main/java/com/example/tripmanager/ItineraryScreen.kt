@@ -24,55 +24,110 @@ fun ItineraryScreen(
     tripName: String,
     onAddClick: () -> Unit
 ) {
+    // ✅ LocalContext y remember deben ir DENTRO del cuerpo composable
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
-    val api = RetrofitClient.instance.create(ApiService::class.java)
+    val api = remember { RetrofitClient.instance.create(ApiService::class.java) }
 
     var actividades by remember { mutableStateOf<List<ActivityDTO>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
 
+    // Función para cargar actividades desde el backend
     fun loadActivities() {
-        val token = sessionManager.fetchAuthToken()
-        if (!token.isNullOrEmpty()) {
-            api.getActivitiesByTrip("Bearer $token", tripId)
-                .enqueue(object : Callback<List<ActivityDTO>> {
-                    override fun onResponse(
-                        call: Call<List<ActivityDTO>>,
-                        response: Response<List<ActivityDTO>>
-                    ) {
-                        if (response.isSuccessful) {
-                            actividades = response.body() ?: emptyList()
-                        } else {
-                            Toast.makeText(context, "Error cargando actividades", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-
-                    override fun onFailure(call: Call<List<ActivityDTO>>, t: Throwable) {
-                        Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
-                    }
-                })
+        if (tripId == -1) {
+            actividades = emptyList()
+            return
         }
+        val token = sessionManager.fetchAuthToken()
+        if (token.isNullOrEmpty()) {
+            Toast.makeText(context, "⚠️ No hay sesión activa", Toast.LENGTH_SHORT).show()
+            actividades = emptyList()
+            return
+        }
+
+        isLoading = true
+        api.getActivitiesByTrip("Bearer $token", tripId)
+            .enqueue(object : Callback<List<ActivityDTO>> {
+                override fun onResponse(call: Call<List<ActivityDTO>>, response: Response<List<ActivityDTO>>) {
+                    isLoading = false
+                    if (response.isSuccessful) {
+                        actividades = response.body() ?: emptyList()
+                    } else {
+                        Toast.makeText(context, "Error cargando actividades (${response.code()})", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                override fun onFailure(call: Call<List<ActivityDTO>>, t: Throwable) {
+                    isLoading = false
+                    Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                }
+            })
     }
 
-    LaunchedEffect(tripId) { loadActivities() }
+    // Eliminar actividad por id (recarga lista luego)
+    fun deleteActivity(activityId: Int?) {
+        val id = activityId ?: run {
+            Toast.makeText(context, "ID de actividad inválido", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val token = sessionManager.fetchAuthToken()
+        if (token.isNullOrEmpty()) {
+            Toast.makeText(context, "⚠️ No hay sesión activa", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        api.deleteActivity("Bearer $token", id)
+            .enqueue(object : Callback<Void> {
+                override fun onResponse(call: Call<Void>, response: Response<Void>) {
+                    if (response.isSuccessful) {
+                        Toast.makeText(context, "Actividad eliminada", Toast.LENGTH_SHORT).show()
+                        loadActivities()
+                    } else {
+                        Toast.makeText(context, "Error eliminando (code ${response.code()})", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                override fun onFailure(call: Call<Void>, t: Throwable) {
+                    Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                }
+            })
+    }
+
+    // Cargar al iniciar y cuando cambie tripId
+    LaunchedEffect(tripId) {
+        loadActivities()
+    }
 
     Scaffold(
         topBar = {
+            // Usamos TopAppBar de material3 (no SmallTopAppBar para evitar incompatibilidades)
             TopAppBar(
-                title = { Text("Itinerario - $tripName") }
+                title = { Text(text = "Itinerario - $tripName") }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddClick, containerColor = Color(0xFFE0BBFF)) {
+            FloatingActionButton(
+                onClick = onAddClick,
+                containerColor = Color(0xFFE0BBFF)
+            ) {
                 Text("+", color = Color.Black)
             }
         }
-    ) { padding ->
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(paddingValues)
                 .padding(16.dp)
         ) {
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                return@Column
+            }
+
             if (actividades.isEmpty()) {
                 Text("No hay actividades todavía", color = Color.Gray)
             } else {
@@ -92,32 +147,13 @@ fun ItineraryScreen(
                                 Column {
                                     Text("📌 ${actividad.descripcion}", style = MaterialTheme.typography.titleMedium)
                                     Text("🕒 ${actividad.hora}")
+                                    actividad.recordatorio?.let {
+                                        Text("⏰ Recordatorio: $it")
+                                    }
                                     Text("⚠️ Alerta: ${actividad.alerta}")
                                 }
 
-                                IconButton(onClick = {
-                                    val token = sessionManager.fetchAuthToken()
-                                    if (!token.isNullOrEmpty()) {
-                                        api.deleteActivity("Bearer $token", actividad.id)
-                                            .enqueue(object : Callback<Void> {
-                                                override fun onResponse(
-                                                    call: Call<Void>,
-                                                    response: Response<Void>
-                                                ) {
-                                                    if (response.isSuccessful) {
-                                                        Toast.makeText(context, "Actividad eliminada", Toast.LENGTH_SHORT).show()
-                                                        loadActivities()
-                                                    } else {
-                                                        Toast.makeText(context, "Error eliminando", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                }
-
-                                                override fun onFailure(call: Call<Void>, t: Throwable) {
-                                                    Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
-                                                }
-                                            })
-                                    }
-                                }) {
+                                IconButton(onClick = { deleteActivity(actividad.id) }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red)
                                 }
                             }
