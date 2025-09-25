@@ -5,9 +5,10 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,22 +20,21 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.tripmanager.data.User
 import com.example.tripmanager.ui.theme.TripManagerTheme
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import com.example.tripmanager.viewModel.UserViewModel
 
 class MainActivity : ComponentActivity() {
+
+    private val userViewModel: UserViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
             TripManagerTheme {
-                Scaffold(
-                    modifier = Modifier.fillMaxSize()
-                ) { innerPadding ->
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Box(modifier = Modifier.padding(innerPadding)) {
-                        LoginScreen()
+                        LoginScreen(userViewModel)
                     }
                 }
             }
@@ -43,8 +43,92 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun LoginScreen() {
-    var user by remember { mutableStateOf("") }
+fun LoginScreen(viewModel: UserViewModel) {
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var showRegister by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    if (showRegister) {
+        RegisterScreen(viewModel) {
+            showRegister = false
+        }
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.logo),
+                contentDescription = "Logo TripManager",
+                modifier = Modifier.size(200.dp).padding(bottom = 16.dp)
+            )
+
+            Text("TripManager", fontSize = 60.sp, color = Color.Black)
+            Text(
+                "Tu agenda de viajes inteligente",
+                fontSize = 20.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Usuario") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Contraseña") },
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Button(
+                    onClick = {
+                        viewModel.login(username, password) { success ->
+                            if (success) {
+                                Toast.makeText(context, "Bienvenido $username", Toast.LENGTH_SHORT).show()
+                                context.startActivity(Intent(context, MenuActivity::class.java))
+                            } else {
+                                Toast.makeText(context, "Credenciales incorrectas", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                ) {
+                    Text("Ingresar", color = Color.White)
+                }
+
+                Button(
+                    onClick = { showRegister = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF03A9F4))
+                ) {
+                    Text("Registrar", color = Color.White)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RegisterScreen(viewModel: UserViewModel, onBack: () -> Unit) {
+    var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val context = LocalContext.current
 
@@ -55,113 +139,55 @@ fun LoginScreen() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Text("Registrar Usuario", fontSize = 30.sp, color = Color.Black, modifier = Modifier.padding(bottom = 32.dp))
 
-        // Logo
-        Image(
-            painter = painterResource(id = R.drawable.logo),
-            contentDescription = "Logo TripManager",
-            modifier = Modifier
-                .size(200.dp)
-                .padding(bottom = 16.dp)
-        )
-
-        Text("TripManager", fontSize = 40.sp, color = Color.Black)
-
-        Text(
-            "Tu agenda de viajes inteligente",
-            fontSize = 18.sp,
-            color = Color.Gray,
-            modifier = Modifier.padding(bottom = 32.dp)
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Icono de usuario
-        Icon(
-            painter = painterResource(id = R.drawable.img),
-            contentDescription = "Usuario",
-            modifier = Modifier
-                .size(80.dp)
-                .padding(bottom = 24.dp),
-            tint = Color.Black
-        )
-
-        // Campo de usuario
         OutlinedTextField(
-            value = user,
-            onValueChange = { user = it },
+            value = username,
+            onValueChange = { username = it },
             label = { Text("Usuario") },
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Campo de contraseña
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             label = { Text("Contraseña") },
             visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                keyboardType = KeyboardType.Password
-            ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Botón ingresar
-        Button(
-            onClick = {
-                val api = RetrofitClient.instance.create(ApiService::class.java)
-                val request = LoginRequest(user, password)
-                val sessionManager = SessionManager(context)
-
-                api.login(request).enqueue(object : Callback<TokenResponse> {
-                    override fun onResponse(
-                        call: Call<TokenResponse>,
-                        response: Response<TokenResponse>
-                    ) {
-                        if (response.isSuccessful) {
-                            val token = response.body()?.access
-                            if (!token.isNullOrEmpty()) {
-                                // Guardar token
-                                sessionManager.saveAuthToken(token)
-
-                                Toast.makeText(
-                                    context,
-                                    "✅ Bienvenido $user",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-
-                                // Ir al menú
-                                val intent = Intent(context, MenuActivity::class.java)
-                                context.startActivity(intent)
-                            } else {
-                                Toast.makeText(
-                                    context,
-                                    "❌ Error: Token vacío",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        } else {
-                            Toast.makeText(
-                                context,
-                                "❌ Credenciales incorrectas",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-
-                    override fun onFailure(call: Call<TokenResponse>, t: Throwable) {
-                        Toast.makeText(context, "⚠️ Error: ${t.message}", Toast.LENGTH_SHORT).show()
-                    }
-                })
-            },
-            modifier = Modifier.wrapContentWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Text("Ingresar", color = Color.White)
+            Button(
+                onClick = {
+                    if (username.isNotBlank() && password.isNotBlank()) {
+                        val newUser = User(username = username, passwordHash = password)
+                        viewModel.registerUser(newUser) {
+                            Toast.makeText(context, "Usuario registrado", Toast.LENGTH_SHORT).show()
+                            onBack()
+                        }
+                    } else {
+                        Toast.makeText(context, "Rellena todos los campos", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF03A9F4))
+            ) {
+                Text("Registrar", color = Color.White)
+            }
+
+            Button(
+                onClick = { onBack() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+            ) {
+                Text("Volver", color = Color.White)
+            }
         }
     }
 }

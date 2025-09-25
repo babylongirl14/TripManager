@@ -1,5 +1,3 @@
-//no funciona aun
-
 package com.example.tripmanager
 
 import android.os.Bundle
@@ -38,6 +36,7 @@ class DocumentsActivity : ComponentActivity() {
 fun DocumentsScreen(tripName: String) {
     val context = LocalContext.current
 
+    // Lista de documentos
     val documentos = remember { mutableStateListOf("Pasaporte.pdf", "BoletoVuelo.pdf") }
 
     Scaffold(
@@ -51,7 +50,7 @@ fun DocumentsScreen(tripName: String) {
                     Toast.makeText(context, "Documento agregado", Toast.LENGTH_SHORT).show()
                 }
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Agregar documento")
+                Icon(Icons.Filled.Add, contentDescription = "Agregar documento")
             }
         }
     ) { padding ->
@@ -66,7 +65,9 @@ fun DocumentsScreen(tripName: String) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 ) {
                     Row(
                         modifier = Modifier
@@ -75,14 +76,16 @@ fun DocumentsScreen(tripName: String) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row {
-                            Icon(Icons.Default.Description, contentDescription = "Doc")
+                            Icon(Icons.Filled.Description, contentDescription = "Documento")
                             Spacer(Modifier.width(8.dp))
                             Text(doc)
                         }
-                        TextButton(onClick = {
-                            documentos.remove(doc)
-                            Toast.makeText(context, "Documento eliminado", Toast.LENGTH_SHORT).show()
-                        }) {
+                        TextButton(
+                            onClick = {
+                                documentos.remove(doc)
+                                Toast.makeText(context, "Documento eliminado", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
                             Text("Eliminar", color = MaterialTheme.colorScheme.error)
                         }
                     }
