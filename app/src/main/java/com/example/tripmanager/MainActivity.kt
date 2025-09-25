@@ -2,6 +2,7 @@ package com.example.tripmanager
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -19,8 +20,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.tripmanager.ui.theme.TripManagerTheme
-
-
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,6 +56,7 @@ fun LoginScreen() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
+        // Logo
         Image(
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "Logo TripManager",
@@ -62,52 +65,100 @@ fun LoginScreen() {
                 .padding(bottom = 16.dp)
         )
 
-        Text("TripManager", fontSize = 60.sp, color = Color.Black)
-        //Subititulo
-        Text("Tu agenda de viajes inteligente", fontSize = 20.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 32.dp))
+        Text("TripManager", fontSize = 40.sp, color = Color.Black)
+
+        Text(
+            "Tu agenda de viajes inteligente",
+            fontSize = 18.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Icono de usuario
         Icon(
             painter = painterResource(id = R.drawable.img),
             contentDescription = "Usuario",
             modifier = Modifier
-                .size(100.dp)
+                .size(80.dp)
                 .padding(bottom = 24.dp),
             tint = Color.Black
         )
 
+        // Campo de usuario
         OutlinedTextField(
             value = user,
             onValueChange = { user = it },
             label = { Text("Usuario") },
-            modifier = Modifier.fillMaxWidth() //fillMaxWidth hace que el recuadro se haga al ancho de la pantalla
-
+            modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // Campo de contraseña
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             label = { Text("Contraseña") },
             visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Password),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                keyboardType = KeyboardType.Password
+            ),
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        // Botón ingresar
         Button(
             onClick = {
-                // TODO: conectar con Django aquí
-                if (user == "Sergio" && password == "1234") {
-                    context.startActivity(Intent(context, MenuActivity::class.java))
-                } else {
-                    println("Credenciales incorrectas")
-                }
+                val api = RetrofitClient.instance.create(ApiService::class.java)
+                val request = LoginRequest(user, password)
+                val sessionManager = SessionManager(context)
+
+                api.login(request).enqueue(object : Callback<TokenResponse> {
+                    override fun onResponse(
+                        call: Call<TokenResponse>,
+                        response: Response<TokenResponse>
+                    ) {
+                        if (response.isSuccessful) {
+                            val token = response.body()?.access
+                            if (!token.isNullOrEmpty()) {
+                                // Guardar token
+                                sessionManager.saveAuthToken(token)
+
+                                Toast.makeText(
+                                    context,
+                                    "✅ Bienvenido $user",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+
+                                // Ir al menú
+                                val intent = Intent(context, MenuActivity::class.java)
+                                context.startActivity(intent)
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    "❌ Error: Token vacío",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        } else {
+                            Toast.makeText(
+                                context,
+                                "❌ Credenciales incorrectas",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+
+                    override fun onFailure(call: Call<TokenResponse>, t: Throwable) {
+                        Toast.makeText(context, "⚠️ Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                    }
+                })
             },
-            modifier = Modifier.wrapContentWidth(), //el cuadro se adapta al contenido
+            modifier = Modifier.wrapContentWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
         ) {
             Text("Ingresar", color = Color.White)

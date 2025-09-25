@@ -2,25 +2,31 @@ package com.example.tripmanager
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import com.example.tripmanager.ui.theme.TripManagerTheme
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material.icons.filled.Settings
-
-
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 class MenuActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,19 +43,51 @@ class MenuActivity : ComponentActivity() {
 @Composable
 fun MenuScreen() {
     val context = LocalContext.current
+    val sessionManager = remember { SessionManager(context) }
 
-    //Aquí después se cargará desde Django, se supone que aqui se conecta la db
-    val trips = remember {
-        mutableStateListOf(
-            Triple("Madrid", "10/julio/2025", "Vacaciones"),
-            Triple("Japón", "14/octubre/2025", "Vacaciones"),
-            Triple("CDMX", "20/septiembre/2025", "Trabajo")
-        )
+    var trips by remember { mutableStateOf<List<TripDTO>>(emptyList()) }
+    var expandedTrip by remember { mutableStateOf<Int?>(null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var tripToDelete by remember { mutableStateOf<Int?>(null) }
+
+    // 🔹 Función para cargar viajes
+    fun cargarViajes() {
+        val token = sessionManager.fetchAuthToken()
+        if (token.isNullOrEmpty()) {
+            Toast.makeText(context, "⚠️ No hay sesión activa", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val api = RetrofitClient.instance.create(ApiService::class.java)
+        api.getTrips("Bearer $token").enqueue(object : Callback<List<TripDTO>> {
+            override fun onResponse(call: Call<List<TripDTO>>, response: Response<List<TripDTO>>) {
+                if (response.isSuccessful) {
+                    trips = response.body() ?: emptyList()
+                } else {
+                    Toast.makeText(context, "❌ Error cargando viajes", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call<List<TripDTO>>, t: Throwable) {
+                Toast.makeText(context, "⚠️ Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
-    var expandedTrip by remember { mutableStateOf<String?>(null) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var tripToDelete by remember { mutableStateOf<String?>(null) }
+    // 🔹 Recargar cada vez que la pantalla se reanuda
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _: LifecycleOwner, event: Lifecycle.Event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                cargarViajes()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -85,8 +123,8 @@ fun MenuScreen() {
 
             Spacer(Modifier.height(16.dp))
 
-            // Lista de viajes
-            trips.forEach { (destino, fecha, tipo) ->
+            // Lista de viajes obtenidos
+            trips.forEach { trip ->
                 Card(
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)),
@@ -100,23 +138,25 @@ fun MenuScreen() {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(destino, style = MaterialTheme.typography.titleLarge)
+                            Text(trip.destino, style = MaterialTheme.typography.titleLarge)
 
                             // Menú contextual
                             Box {
-                                IconButton(onClick = { expandedTrip = destino }) {
+                                IconButton(onClick = { expandedTrip = trip.id }) {
                                     Icon(Icons.Default.Settings, contentDescription = "Ajustes")
-
                                 }
                                 DropdownMenu(
-                                    expanded = expandedTrip == destino,
+                                    expanded = expandedTrip == trip.id,
                                     onDismissRequest = { expandedTrip = null }
                                 ) {
                                     DropdownMenuItem(
                                         text = { Text("Itinerario") },
                                         onClick = {
                                             expandedTrip = null
-                                            context.startActivity(Intent(context, ItineraryActivity::class.java))
+                                            val intent = Intent(context, ItineraryActivity::class.java)
+                                            intent.putExtra("tripId", trip.id)        // 👈 Aquí pasamos el ID
+                                            intent.putExtra("tripName", trip.destino) // 👈 Aquí pasamos el nombre
+                                            context.startActivity(intent)
                                         }
                                     )
                                     DropdownMenuItem(
@@ -130,7 +170,7 @@ fun MenuScreen() {
                                         text = { Text("Eliminar", color = Color.Red) },
                                         onClick = {
                                             expandedTrip = null
-                                            tripToDelete = destino
+                                            tripToDelete = trip.id
                                             showDeleteDialog = true
                                         }
                                     )
@@ -138,8 +178,15 @@ fun MenuScreen() {
                             }
                         }
                         Divider(Modifier.padding(vertical = 6.dp))
-                        Text("Fecha: $fecha", style = MaterialTheme.typography.bodyMedium)
-                        Text(tipo, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        Text(
+                            "Fecha: ${trip.fecha_inicio} - ${trip.fecha_fin}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            trip.tipo,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
                     }
                 }
             }
@@ -151,8 +198,7 @@ fun MenuScreen() {
                 onDismissRequest = { showDeleteDialog = false },
                 confirmButton = {
                     TextButton(onClick = {
-                        // 👉 Aquí después conectas con Django para eliminar viaje
-                        trips.removeIf { it.first == tripToDelete }
+                        trips = trips.filterNot { it.id == tripToDelete }
                         showDeleteDialog = false
                     }) {
                         Text("Eliminar", color = Color.Red)
@@ -168,4 +214,3 @@ fun MenuScreen() {
         }
     }
 }
-

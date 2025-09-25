@@ -17,19 +17,56 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.tripmanager.ui.theme.TripManagerTheme
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class AddTripActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             TripManagerTheme {
-                AddTripScreen { destino, fecha, tipo ->
-                    Toast.makeText(
-                        this,
-                        "Viaje a $destino agregado",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    finish()
+                AddTripScreen { trip ->
+                    // Llamada a la API para guardar
+                    val api = RetrofitClient.instance.create(ApiService::class.java)
+                    val sessionManager = SessionManager(this)
+                    val token = sessionManager.fetchAuthToken()
+
+                    if (token == null) {
+                        Toast.makeText(this, "⚠️ Debes iniciar sesión", Toast.LENGTH_SHORT).show()
+                        return@AddTripScreen
+                    }
+
+                    api.createTrip("Bearer $token", trip)
+                        .enqueue(object : Callback<TripDTO> {
+                            override fun onResponse(
+                                call: Call<TripDTO>,
+                                response: Response<TripDTO>
+                            ) {
+                                if (response.isSuccessful) {
+                                    Toast.makeText(
+                                        this@AddTripActivity,
+                                        "✅ Viaje agregado: ${response.body()?.destino}",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    finish()
+                                } else {
+                                    Toast.makeText(
+                                        this@AddTripActivity,
+                                        "❌ Error al crear viaje",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+
+                            override fun onFailure(call: Call<TripDTO>, t: Throwable) {
+                                Toast.makeText(
+                                    this@AddTripActivity,
+                                    "⚠️ Error: ${t.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        })
                 }
             }
         }
@@ -38,7 +75,7 @@ class AddTripActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddTripScreen(onSave: (String, String, String) -> Unit) {
+fun AddTripScreen(onSave: (TripDTO) -> Unit) {
     val context = LocalContext.current
 
     var destino by remember { mutableStateOf("") }
@@ -49,13 +86,7 @@ fun AddTripScreen(onSave: (String, String, String) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        "Viajes",
-                        fontSize = 28.sp,
-                        modifier = Modifier.padding(start = 16.dp)
-                    )
-                },
+                title = { Text("Nuevo Viaje", fontSize = 24.sp) },
                 actions = {
                     Icon(
                         painter = painterResource(id = R.drawable.logo),
@@ -76,126 +107,63 @@ fun AddTripScreen(onSave: (String, String, String) -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.Top
         ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFFF2F2F2)
+            OutlinedTextField(
+                value = destino,
+                onValueChange = { destino = it },
+                label = { Text("Destino") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = fechaInicio,
+                onValueChange = { fechaInicio = it },
+                label = { Text("Fecha inicio (YYYY-MM-DD)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = fechaFin,
+                onValueChange = { fechaFin = it },
+                label = { Text("Fecha fin (YYYY-MM-DD)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = tipo,
+                onValueChange = { tipo = it },
+                label = { Text("Tipo (Vacaciones/Trabajo)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    if (destino.isNotBlank() && fechaInicio.isNotBlank() &&
+                        fechaFin.isNotBlank() && tipo.isNotBlank()
+                    ) {
+                        val trip = TripDTO(
+                            destino = destino,
+                            fecha_inicio = fechaInicio,
+                            fecha_fin = fechaFin,
+                            tipo = tipo
+                        )
+                        onSave(trip)
+                    } else {
+                        Toast.makeText(context, "Completa todos los campos", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007BFF))
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Nuevo viaje",
-                        fontSize = 28.sp,
-                        color = Color.Black,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
-                    )
-
-                    Divider(
-                        color = Color.Gray,
-                        thickness = 1.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Text(text = "Destino", fontSize = 18.sp, color = Color.Black)
-                    OutlinedTextField(
-                        value = destino,
-                        onValueChange = { destino = it },
-                        placeholder = { Text("Nombre del destino") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
-                    )
-
-                    Text(text = "Inicio y Fin", fontSize = 18.sp, color = Color.Black)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = fechaInicio,
-                            onValueChange = { fechaInicio = it },
-                            placeholder = { Text("00/00/0000") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                        OutlinedTextField(
-                            value = fechaFin,
-                            onValueChange = { fechaFin = it },
-                            placeholder = { Text("00/00/0000") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                    }
-
-                    Text(text = "Tipo", fontSize = 18.sp, color = Color.Black)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(20.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { tipo = "Vacaciones" },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(20.dp),
-                            border = if (tipo == "Vacaciones")
-                                ButtonDefaults.outlinedButtonBorder.copy(width = 2.dp)
-                            else
-                                ButtonDefaults.outlinedButtonBorder
-                        ) {
-                            Text(
-                                text = "Vacaciones",
-                                color = if (tipo == "Vacaciones") Color(0xFF007BFF) else Color.Gray
-                            )
-                        }
-
-                        OutlinedButton(
-                            onClick = { tipo = "Trabajo" },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(20.dp),
-                            border = if (tipo == "Trabajo")
-                                ButtonDefaults.outlinedButtonBorder.copy(width = 2.dp)
-                            else
-                                ButtonDefaults.outlinedButtonBorder
-                        ) {
-                            Text(
-                                text = "Trabajo",
-                                color = if (tipo == "Trabajo") Color(0xFF007BFF) else Color.Gray
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Button(
-                        onClick = {
-                            if (destino.isNotBlank() && fechaInicio.isNotBlank() && fechaFin.isNotBlank() && tipo.isNotBlank()) {
-                                onSave(destino, "$fechaInicio - $fechaFin", tipo)
-                            } else {
-                                Toast.makeText(
-                                    context,
-                                    "Completa todos los campos",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        },
-                        modifier = Modifier.wrapContentWidth(Alignment.CenterHorizontally),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007BFF))
-                    ) {
-                        Text(text = "Guardar", color = Color.White, fontSize = 18.sp)
-                    }
-
-                }
+                Text("Guardar", color = Color.White, fontSize = 18.sp)
             }
         }
     }
 }
-
-
